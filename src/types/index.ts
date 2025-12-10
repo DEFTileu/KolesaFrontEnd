@@ -4,9 +4,6 @@ export interface User {
   email: string
   firstName?: string
   lastName?: string
-}
-
-export interface Publication {
   id: string
   title: string
   description: string
@@ -34,4 +31,15 @@ export interface SignUpRequest {
   firstName: string
   lastName: string
   password: string
+}
+
+export interface CreatePublicationRequest {
+  title: string
+  description: string
+  price: number
+  images?: string[]
+  year?: number
+  mileage?: number
+  brand?: string
+  model?: string
 }

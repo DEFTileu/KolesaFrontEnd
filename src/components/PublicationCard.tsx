@@ -1,7 +1,7 @@
 "use client"
 
 import { useNavigate } from "react-router-dom"
-import type { Publication } from "../types"
+import { Publication } from "../../types";
 
 interface PublicationCardProps {
   publication: Publication
@@ -41,7 +41,7 @@ export default function PublicationCard({ publication }: PublicationCardProps) {
         </h3>
         <p className="text-gray-600 text-sm line-clamp-2 mb-4">{publication.description}</p>
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-500">By {publication.author?.username || "Unknown"}</span>
+          <span className="text-gray-500">By {publication.author?.user.firstName || "Unknown"}</span>
           <span className="text-gray-400">{new Date(publication.createdAt).toLocaleDateString()}</span>
         </div>
       </div>

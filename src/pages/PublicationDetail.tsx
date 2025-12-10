@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import Navbar from "../components/Navbar"
 import { api } from "../utils/api"
-import type { Publication } from "../types"
+import type { Publication } from "../../types"
 
 export default function PublicationDetail() {
   const { id } = useParams<{ id: string }>()
@@ -100,7 +100,7 @@ export default function PublicationDetail() {
             <div className="flex items-center gap-4 mb-6 pb-6 border-b">
               <div className="flex-1">
                 <p className="text-sm text-gray-500">Written by</p>
-                <p className="font-medium text-gray-900">{publication.author?.username || "Unknown"}</p>
+                <p className="font-medium text-gray-900">{publication.author?.user.firstName +" "+ publication.author.user.lastName || "Unknown"}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Published</p>

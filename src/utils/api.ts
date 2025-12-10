@@ -1,20 +1,14 @@
-import type { AuthResponse, SignInRequest, SignUpRequest, Publication } from "../types"
+import type { AuthResponse, SignInRequest, SignUpRequest, CreatePublicationRequest } from "../types"
+import type { Publication } from "../../types"
 
 // @ts-ignore
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:9090/api"
+const API_URL = import.meta.env.VITE_API_URL || "https://api-kolesa.javazhan.tech/api"
 
 const getAccessToken = () =>
   localStorage.getItem("access_token") ||
   localStorage.getItem("auth_token") ||
   localStorage.getItem("token")
 
-const authHeaders = () => {
-  const token = getAccessToken()
-  return {
-    "Content-Type": "application/json",
-    Authorization: token ? `Bearer ${token}` : "",
-  }
-}
 
 async function refreshTokens() {
   const refreshToken = localStorage.getItem("refresh_token")
@@ -34,8 +28,7 @@ async function refreshTokens() {
   return data
 }
 
-async function requestWithRefresh(input: string, init: RequestInit = {}) {
-  // attach current token
+const requestWithRefresh = async (input: string, init: RequestInit = {}) => {
   const headers: HeadersInit = { ...(init.headers as any) }
   const token = getAccessToken()
   if (token) (headers as any).Authorization = `Bearer ${token}`
@@ -88,40 +81,32 @@ export const api = {
   },
 
   async getPublications(): Promise<Publication[]> {
-    const token = getAccessToken()
-    const response = await fetch(`${API_URL}/publications`, {
-      headers: {
-        Authorization: token ? `Bearer ${token}` : "",
-      },
+    const response = await requestWithRefresh(`${API_URL}/publications`, {
+      method: "GET",
     })
     if (!response.ok) throw new Error("Failed to fetch publications")
     return response.json()
   },
 
   async getPublication(id: string): Promise<Publication> {
-    const token = getAccessToken()
-    const response = await fetch(`${API_URL}/publications/${id}`, {
-      headers: {
-        Authorization: token ? `Bearer ${token}` : "",
-      },
+    const response = await requestWithRefresh(`${API_URL}/publications/${id}`, {
+      method: "GET",
     })
     if (!response.ok) throw new Error("Failed to fetch publication")
     return response.json()
   },
 
   async getProfile() {
-    const response = await fetch(`${API_URL}/users/profile`, {
+    const response = await requestWithRefresh(`${API_URL}/users/profile`, {
       method: "GET",
-      headers: authHeaders(),
     })
     if (!response.ok) throw new Error("Failed to fetch profile")
     return response.json()
   },
 
   async updateProfile(data: { firstName?: string; lastName?: string; name?: string; avatarUrl?: string | null }) {
-    const response = await fetch(`${API_URL}/users/profile`, {
+    const response = await requestWithRefresh(`${API_URL}/users/profile`, {
       method: "PUT",
-      headers: authHeaders(),
       body: JSON.stringify(data),
     })
     if (!response.ok) {
@@ -132,14 +117,54 @@ export const api = {
   },
 
   async changePassword(data: { currentPassword: string; newPassword: string }) {
-    const response = await fetch(`${API_URL}/auth/change-password`, {
+    const response = await requestWithRefresh(`${API_URL}/auth/change-password`, {
       method: "POST",
-      headers: authHeaders(),
       body: JSON.stringify(data),
     })
     if (!response.ok) {
       const err = await response.json().catch(() => ({}))
       throw new Error(err.message || "Failed to change password")
+    }
+  },
+
+  async becomeSeller() {
+    const response = await requestWithRefresh(`${API_URL}/users/to-sell`, {
+      method: "POST",
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.message || "Failed to become seller")
+    }
+    return response.json().catch(() => ({}))
+  },
+
+  async getMyPublications(): Promise<Publication[]> {
+    const response = await requestWithRefresh(`${API_URL}/publications/my`, {
+      method: "GET",
+    })
+    if (!response.ok) throw new Error("Failed to fetch my publications")
+    return response.json()
+  },
+
+  async createPublication(data: CreatePublicationRequest): Promise<Publication> {
+    const response = await requestWithRefresh(`${API_URL}/publications`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.message || "Failed to create publication")
+    }
+    return response.json()
+  },
+
+  async deletePublication(id: string): Promise<void> {
+    const response = await requestWithRefresh(`${API_URL}/publications/${id}`, {
+      method: "DELETE",
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.message || "Failed to delete publication")
     }
   },
 }

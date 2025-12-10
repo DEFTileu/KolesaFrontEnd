@@ -258,6 +258,27 @@ class ApiClient {
       throw new Error(error.message || "Failed to change password")
     }
   }
+
+  // Publications (Next app) using auto-refresh
+  async getPublications(token?: string) {
+    const response = await this.fetchWithAutoRefresh(`${API_BASE_URL}/publications`, {
+      method: "GET",
+    }, token)
+    if (!response.ok) {
+      throw new Error("Failed to fetch publications")
+    }
+    return response.json()
+  }
+
+  async getPublicationById(id: string, token?: string) {
+    const response = await this.fetchWithAutoRefresh(`${API_BASE_URL}/publications/${id}`, {
+      method: "GET",
+    }, token)
+    if (!response.ok) {
+      throw new Error("Failed to fetch publication")
+    }
+    return response.json()
+  }
 }
 
 export const apiClient = new ApiClient()

@@ -4,6 +4,11 @@ export interface User {
   id: string
   email: string
   username?: string
+  avatarUrl?: string
+  firstName?: string
+  lastName?: string
+  role: string
+  updatedAt?: string
   createdAt?: string
 }
 
@@ -12,11 +17,17 @@ export interface Publication {
   title: string
   description: string
   content: string
-  author: User
+  author: Seller
   images: string[]
   createdAt: string
   updatedAt: string
   published: boolean
+}
+
+export interface Seller {
+  id:string
+  user: User
+  createdAt: string
 }
 
 export interface AuthResponse {

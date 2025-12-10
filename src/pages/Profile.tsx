@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import Navbar from "../components/Navbar"
+import BecomeSellerBlock from "../components/BecomeSellerBlock"
+import CreatePublicationModal from "../components/CreatePublicationModal"
+import PublicationCard from "../components/PublicationCard"
 import { api } from "../utils/api"
+import type { Publication } from "../types"
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -22,6 +26,11 @@ export default function Profile() {
   const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState<string | undefined>(undefined)
   const [avatarUrl, setAvatarUrl] = useState<string | null>("")
+  const [userRole, setUserRole] = useState<string | undefined>(undefined)
+
+  const [myPublications, setMyPublications] = useState<Publication[]>([])
+  const [publicationsLoading, setPublicationsLoading] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
@@ -47,6 +56,7 @@ export default function Profile() {
         setLastName(u.lastName || "")
         setEmail(u.email)
         setAvatarUrl(u.avatarUrl || null)
+        setUserRole(u.role)
       }
     } catch {}
 
@@ -58,11 +68,19 @@ export default function Profile() {
         setLastName(u.lastName || "")
         setEmail(u.email)
         setAvatarUrl(u.avatarUrl || null)
+        setUserRole(u.role)
+
         // persist latest user for Navbar
         try {
           localStorage.setItem("user", JSON.stringify(u))
         } catch {}
+
         setError(null)
+
+        // Если пользователь - продавец, загружаем его публикации
+        if (u.role === "ROLE_SELLER") {
+          fetchMyPublications()
+        }
       } catch (err) {
         setError("Не удалось загрузить профиль")
       } finally {
@@ -72,6 +90,18 @@ export default function Profile() {
 
     fetchProfile()
   }, [navigate, token])
+
+  const fetchMyPublications = async () => {
+    try {
+      setPublicationsLoading(true)
+      const pubs = await api.getMyPublications()
+      setMyPublications(pubs)
+    } catch (err) {
+      console.error("Failed to fetch publications:", err)
+    } finally {
+      setPublicationsLoading(false)
+    }
+  }
 
   const handleSave = async () => {
     if (!token) return
@@ -117,6 +147,38 @@ export default function Profile() {
       setPasswordMessage(err?.message || "Не удалось изменить пароль")
     } finally {
       setChanging(false)
+    }
+  }
+
+  const handlePublicationCreated = () => {
+    fetchMyPublications()
+  }
+
+  const handleBecomeSellerSuccess = async () => {
+    // Перезагружаем профиль после становления продавцом
+    try {
+      const u = await api.getProfile()
+      setUserRole(u.role)
+      try {
+        localStorage.setItem("user", JSON.stringify(u))
+      } catch {}
+
+      if (u.role === "ROLE_SELLER") {
+        fetchMyPublications()
+      }
+    } catch (err) {
+      console.error("Failed to refresh profile:", err)
+    }
+  }
+
+  const handleDeletePublication = async (id: string) => {
+    if (!confirm("Вы уверены, что хотите удалить эту публикацию?")) return
+
+    try {
+      await api.deletePublication(id)
+      setMyPublications(myPublications.filter(p => p.id !== id))
+    } catch (err) {
+      alert("Не удалось удалить публикацию")
     }
   }
 
@@ -234,9 +296,61 @@ export default function Profile() {
                 )}
               </div>
             </section>
+
+            {userRole === "ROLE_SELLER" && (
+              <section className="bg-white rounded-lg shadow border p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold">Мои публикации</h2>
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    + Создать публикацию
+                  </button>
+                </div>
+
+                {publicationsLoading ? (
+                  <div className="text-center py-8 text-gray-500">Загрузка публикаций...</div>
+                ) : myPublications.length === 0 ? (
+                  <div className="text-center py-12 bg-gray-50 rounded-lg">
+                    <p className="text-gray-500 mb-4">У вас пока нет публикаций</p>
+                    <button
+                      onClick={() => setIsModalOpen(true)}
+                      className="text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Создать первую публикацию
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {myPublications.map((publication) => (
+                      <div key={publication.id} className="relative">
+                        <PublicationCard publication={publication} />
+                        <button
+                          onClick={() => handleDeletePublication(publication.id)}
+                          className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+                        >
+                          Удалить
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {userRole !== "ROLE_SELLER" && (
+              <BecomeSellerBlock onSuccess={handleBecomeSellerSuccess} />
+            )}
           </div>
         )}
       </main>
+
+      <CreatePublicationModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={handlePublicationCreated}
+      />
     </div>
   )
 }

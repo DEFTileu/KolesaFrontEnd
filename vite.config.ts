@@ -7,5 +7,6 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
-  },
+    allowedHosts: ["3487ca46ebc3.ngrok-free.app"]  // Add the ngrok URL here
+  }
 })
