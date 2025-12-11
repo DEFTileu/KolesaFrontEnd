@@ -1,4 +1,4 @@
-import type { AuthResponse, SignInRequest, SignUpRequest, CreatePublicationRequest, Publication } from "../types"
+import type { AuthResponse, SignInRequest, SignUpRequest, CreatePublicationRequest, UpdatePublicationRequest, Publication } from "../types"
 import { PublicationFilterType } from "../types"
 
 // @ts-ignore
@@ -175,5 +175,61 @@ export const api = {
       const err = await response.json().catch(() => ({}))
       throw new Error(err.message || "Failed to delete publication")
     }
+  },
+
+  async archivePublication(id: string): Promise<Publication> {
+    const response = await requestWithRefresh(`${API_URL}/publications/${id}/archive`, {
+      method: "PUT",
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.message || "Failed to archive publication")
+    }
+    return response.json()
+  },
+
+  async publishPublication(id: string): Promise<Publication> {
+    const response = await requestWithRefresh(`${API_URL}/publications/${id}/publish`, {
+      method: "PUT",
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.message || "Failed to publish publication")
+    }
+    return response.json()
+  },
+
+  async rejectPublication(id: string): Promise<Publication> {
+    const response = await requestWithRefresh(`${API_URL}/publications/${id}/reject`, {
+      method: "PUT",
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.message || "Failed to reject publication")
+    }
+    return response.json()
+  },
+
+  async reviewPublication(id: string): Promise<Publication> {
+    const response = await requestWithRefresh(`${API_URL}/publications/${id}/review`, {
+      method: "PUT",
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.message || "Failed to submit publication for review")
+    }
+    return response.json()
+  },
+
+  async updatePublication(id: string, data: UpdatePublicationRequest): Promise<Publication> {
+    const response = await requestWithRefresh(`${API_URL}/publications/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.message || "Failed to update publication")
+    }
+    return response.json()
   },
 }

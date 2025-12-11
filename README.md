@@ -49,9 +49,51 @@ A pure React.js frontend application that integrates with your Spring Framework 
 - **Authentication**: Sign in and sign up pages with JWT token management
 - **Home Page**: Display all publications in a responsive grid layout
 - **Publication Details**: Click on any publication to view full content, images, and author info
+- **Publication Editing** ✨ **NEW**: Sellers can edit their publications (title, description, content, images)
+- **Publication Status Management** ✨ **NEW**: Sellers can manage publication statuses (Draft, Under Review, Published, Archived)
+- **Toast Notifications**: Real-time feedback for all status changes
 - **Responsive Design**: Mobile-first design that works on all screen sizes
 - **Type Safety**: Built with TypeScript for better code quality
 - **Modern UI**: Using Tailwind CSS with clean, professional styling
+
+### 🆕 Publication Status Management
+
+Sellers can now manage their publications through 4 statuses:
+- 🔵 **DRAFT** - Черновик
+- 🟡 **UNDER_REVIEW** - На проверке
+- 🟢 **PUBLISHED** - Опубликовано
+- ⚫ **ARCHIVED** - В архиве
+
+**Features:**
+- Status control panel visible only to publication authors
+- Color-coded status badges
+- Toast notifications for success/error feedback
+- One-click status changes
+- Automatic UI updates
+
+**Documentation:**
+- 📖 [STATUS_MANAGEMENT_GUIDE.md](./STATUS_MANAGEMENT_GUIDE.md) - Full feature guide
+- 💻 [USAGE_EXAMPLES.tsx](./USAGE_EXAMPLES.tsx) - Code examples
+- ✅ [TESTING_CHECKLIST.md](./TESTING_CHECKLIST.md) - Testing guide
+
+### 📝 Publication Editing
+
+Sellers can now edit their own publications:
+- ✏️ **Edit title, description, and content**
+- 📸 **Manage images** (add/remove URLs)
+- 💾 **Auto-save** with toast notifications
+- 🔄 **Real-time updates** on the page
+
+**Features:**
+- Edit button visible only to publication authors
+- Modal window with all editable fields
+- Confirmation before closing with unsaved changes
+- Loading states and validation
+- Toast feedback for success/errors
+
+**Documentation:**
+- 📖 [EDIT_PUBLICATION_COMPLETE.md](./EDIT_PUBLICATION_COMPLETE.md) - Full editing guide
+- 🚀 [EDIT_QUICK_GUIDE.md](./EDIT_QUICK_GUIDE.md) - Quick start guide
 
 ## Tech Stack
 

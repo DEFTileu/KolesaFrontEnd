@@ -12,6 +12,13 @@ export interface User {
   createdAt?: string
 }
 
+export enum PublicationStatus {
+  DRAFT = "DRAFT",
+  UNDER_REVIEW = "UNDER_REVIEW",
+  PUBLISHED = "PUBLISHED",
+  ARCHIVED = "ARCHIVED"
+}
+
 export interface Publication {
   id: string
   title: string
@@ -22,6 +29,7 @@ export interface Publication {
   createdAt: string
   updatedAt: string
   published: boolean
+  status?: PublicationStatus
 }
 
 export interface Seller {

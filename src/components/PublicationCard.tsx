@@ -1,7 +1,7 @@
 "use client"
 
 import { useNavigate } from "react-router-dom"
-import { Publication } from "../../types";
+import { Publication } from "../../types"
 
 interface PublicationCardProps {
   publication: Publication
@@ -42,12 +42,18 @@ export default function PublicationCard({ publication }: PublicationCardProps) {
           </h3>
           <span
             className={`ml-2 px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
-              publication.published
-                ? "bg-green-100 text-green-800"
-                : "bg-gray-100 text-gray-800"
+              publication.status === 'PUBLISHED' ? "bg-green-100 text-green-800" :
+              publication.status === 'UNDER_REVIEW' ? "bg-yellow-100 text-yellow-800" :
+              publication.status === 'ARCHIVED' ? "bg-gray-100 text-gray-800" :
+              publication.status === 'DRAFT' ? "bg-blue-100 text-blue-800" :
+              publication.published ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
             }`}
           >
-            {publication.published ? "Опубликовано" : "Не опубликовано"}
+            {publication.status === 'PUBLISHED' ? "Опубликовано" :
+             publication.status === 'UNDER_REVIEW' ? "На проверке" :
+             publication.status === 'ARCHIVED' ? "В архиве" :
+             publication.status === 'DRAFT' ? "Черновик" :
+             publication.published ? "Опубликовано" : "Не опубликовано"}
           </span>
         </div>
         <p className="text-gray-600 text-sm line-clamp-2 mb-4">{publication.description}</p>

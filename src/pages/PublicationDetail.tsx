@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import Navbar from "../components/Navbar"
+import EditPublicationModal from "../components/EditPublicationModal"
 import { api } from "../utils/api"
-import type { Publication } from "../../types"
+import { showToast } from "../utils/toast"
+import type { Publication, PublicationStatus } from "../types"
 
 export default function PublicationDetail() {
   const { id } = useParams<{ id: string }>()
@@ -12,6 +14,60 @@ export default function PublicationDetail() {
   const [publication, setPublication] = useState<Publication | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [changingStatus, setChangingStatus] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+
+  useEffect(() => {
+    // Get current user from localStorage
+    try {
+      const userStr = localStorage.getItem("user")
+      if (userStr) {
+        const user = JSON.parse(userStr)
+        setCurrentUserId(user.id)
+      }
+    } catch {}
+  }, [])
+
+  const handleStatusChange = async (action: 'archive' | 'publish' | 'reject' | 'review') => {
+    if (!id || !publication) return
+
+    setChangingStatus(true)
+    try {
+      let updatedPublication: Publication
+
+      switch (action) {
+        case 'archive':
+          updatedPublication = await api.archivePublication(id)
+          showToast('Публикация успешно архивирована', 'success')
+          break
+        case 'publish':
+          updatedPublication = await api.publishPublication(id)
+          showToast('Публикация успешно опубликована', 'success')
+          break
+        case 'reject':
+          updatedPublication = await api.rejectPublication(id)
+          showToast('Публикация отклонена', 'success')
+          break
+        case 'review':
+          updatedPublication = await api.reviewPublication(id)
+          showToast('Публикация отправлена на проверку', 'success')
+          break
+        default:
+          return
+      }
+
+      setPublication(updatedPublication)
+    } catch (err: any) {
+      showToast(err?.message || 'Не удалось изменить статус публикации', 'error')
+    } finally {
+      setChangingStatus(false)
+    }
+  }
+
+  const handleEditSuccess = (updated: Publication) => {
+    setPublication(updated)
+  }
 
   useEffect(() => {
     const token =
@@ -96,7 +152,79 @@ export default function PublicationDetail() {
           )}
 
           <div className="p-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">{publication.title}</h1>
+            <div className="flex items-start justify-between mb-4">
+              <h1 className="text-4xl font-bold text-gray-900 flex-1">{publication.title}</h1>
+              {publication.status && (
+                <span className={`ml-4 px-3 py-1 text-sm font-medium rounded-full whitespace-nowrap ${
+                  publication.status === 'PUBLISHED' ? 'bg-green-100 text-green-800' :
+                  publication.status === 'UNDER_REVIEW' ? 'bg-yellow-100 text-yellow-800' :
+                  publication.status === 'ARCHIVED' ? 'bg-gray-100 text-gray-800' :
+                  'bg-blue-100 text-blue-800'
+                }`}>
+                  {publication.status === 'PUBLISHED' ? 'Опубликовано' :
+                   publication.status === 'UNDER_REVIEW' ? 'На проверке' :
+                   publication.status === 'ARCHIVED' ? 'В архиве' :
+                   'Черновик'}
+                </span>
+              )}
+            </div>
+
+            {/* Edit and Status Management Section - Only for author */}
+            {currentUserId && publication.author.user.id === currentUserId && (
+              <div className="mb-6 space-y-4">
+                {/* Edit Publication Button */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Редактирование публикации</h3>
+                    <p className="text-xs text-gray-600 mt-1">Изменить заголовок, описание и содержание</p>
+                  </div>
+                  <button
+                    onClick={() => setIsEditModalOpen(true)}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Редактировать
+                  </button>
+                </div>
+
+                {/* Status Management Panel */}
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Управление статусом публикации</h3>
+                  <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleStatusChange('review')}
+                    disabled={changingStatus || publication.status === 'UNDER_REVIEW'}
+                    className="px-4 py-2 text-sm font-medium text-white bg-yellow-600 rounded-md hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {changingStatus ? 'Обновление...' : 'Отправить на проверку'}
+                  </button>
+                  <button
+                    onClick={() => handleStatusChange('publish')}
+                    disabled={changingStatus || publication.status === 'PUBLISHED'}
+                    className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {changingStatus ? 'Обновление...' : 'Опубликовать'}
+                  </button>
+                  <button
+                    onClick={() => handleStatusChange('archive')}
+                    disabled={changingStatus || publication.status === 'ARCHIVED'}
+                    className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {changingStatus ? 'Обновление...' : 'Архивировать'}
+                  </button>
+                  <button
+                    onClick={() => handleStatusChange('reject')}
+                    disabled={changingStatus || publication.status === 'DRAFT'}
+                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {changingStatus ? 'Обновление...' : 'Отклонить'}
+                  </button>
+                </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex items-center gap-4 mb-6 pb-6 border-b">
               <div className="flex-1">
@@ -142,6 +270,16 @@ export default function PublicationDetail() {
           </div>
         </article>
       </main>
+
+      {/* Edit Publication Modal */}
+      {publication && (
+        <EditPublicationModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSuccess={handleEditSuccess}
+          publication={publication}
+        />
+      )}
     </div>
   )
 }

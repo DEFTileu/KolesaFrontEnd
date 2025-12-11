@@ -5,7 +5,7 @@ import react from "@vitejs/plugin-react"
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3000,
+    port: 5174,
     open: true,
     allowedHosts: ["3487ca46ebc3.ngrok-free.app"]  // Add the ngrok URL here
   }

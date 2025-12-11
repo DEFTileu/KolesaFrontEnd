@@ -8,15 +8,23 @@ export interface User {
   isSeller?: boolean
 }
 
+export enum PublicationStatus {
+  DRAFT = "DRAFT",
+  UNDER_REVIEW = "UNDER_REVIEW",
+  PUBLISHED = "PUBLISHED",
+  ARCHIVED = "ARCHIVED"
+}
+
 export interface Publication {
   id: string
   title: string
   description: string
   content: string
-  author: User
+  author: Seller
   createdAt: string
   updatedAt: string
   published: boolean
+  status?: PublicationStatus
   images: string[]
   price?: number
   year?: number
@@ -25,6 +33,11 @@ export interface Publication {
   model?: string
 }
 
+export interface Seller{
+  user: User
+  id: string
+  createdAt: string
+}
 export interface AuthResponse {
   accessToken: string
   refreshToken: string
@@ -41,6 +54,32 @@ export interface SignUpRequest {
   firstName: string
   lastName: string
   password: string
+}
+
+export interface CreatePublicationRequest {
+  title: string
+  description: string
+  content: string
+  images: string[]
+  published: boolean
+  price?: number
+  year?: number
+  mileage?: number
+  brand?: string
+  model?: string
+}
+
+export interface UpdatePublicationRequest {
+  title?: string
+  description?: string
+  content?: string
+  images?: string[]
+  published?: boolean
+  price?: number
+  year?: number
+  mileage?: number
+  brand?: string
+  model?: string
 }
 
 export const PublicationFilterType = {
