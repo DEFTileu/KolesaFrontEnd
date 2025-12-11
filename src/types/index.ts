@@ -4,6 +4,11 @@ export interface User {
   email: string
   firstName?: string
   lastName?: string
+  avatarUrl?: string
+  isSeller?: boolean
+}
+
+export interface Publication {
   id: string
   title: string
   description: string
@@ -13,6 +18,11 @@ export interface User {
   updatedAt: string
   published: boolean
   images: string[]
+  price?: number
+  year?: number
+  mileage?: number
+  brand?: string
+  model?: string
 }
 
 export interface AuthResponse {
@@ -33,13 +43,9 @@ export interface SignUpRequest {
   password: string
 }
 
-export interface CreatePublicationRequest {
-  title: string
-  description: string
-  price: number
-  images?: string[]
-  year?: number
-  mileage?: number
-  brand?: string
-  model?: string
+export enum PublicationFilterType {
+  ALL = "ALL",
+  PUBLISHED = "PUBLISHED",
+  UNPUBLISHED = "UNPUBLISHED"
 }
+

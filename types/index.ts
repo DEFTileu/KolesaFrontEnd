@@ -39,3 +39,10 @@ export interface ApiError {
   message: string
   status: number
 }
+
+export enum PublicationFilterType {
+  ALL = "ALL",
+  PUBLISHED = "PUBLISHED",
+  UNPUBLISHED = "UNPUBLISHED"
+}
+

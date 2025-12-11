@@ -1,5 +1,4 @@
-import type { AuthResponse, SignInRequest, SignUpRequest, CreatePublicationRequest } from "../types"
-import type { Publication } from "../../types"
+import type { AuthResponse, SignInRequest, SignUpRequest, CreatePublicationRequest, Publication, PublicationFilterType } from "../types"
 
 // @ts-ignore
 const API_URL = import.meta.env.VITE_API_URL || "https://api-kolesa.javazhan.tech/api"
@@ -28,7 +27,8 @@ async function refreshTokens() {
   return data
 }
 
-const requestWithRefresh = async (input: string, init: RequestInit = {}) => {
+async function requestWithRefresh(input: string, init: RequestInit = {}) {
+  // attach current token
   const headers: HeadersInit = { ...(init.headers as any) }
   const token = getAccessToken()
   if (token) (headers as any).Authorization = `Bearer ${token}`
@@ -143,6 +143,14 @@ export const api = {
       method: "GET",
     })
     if (!response.ok) throw new Error("Failed to fetch my publications")
+    return response.json()
+  },
+
+  async getMyPublicationsByFilter(filterType: PublicationFilterType | string): Promise<Publication[]> {
+    const response = await requestWithRefresh(`${API_URL}/publications/my/filter/${filterType}`, {
+      method: "GET",
+    })
+    if (!response.ok) throw new Error("Failed to fetch filtered publications")
     return response.json()
   },
 

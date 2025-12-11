@@ -36,9 +36,20 @@ export default function PublicationCard({ publication }: PublicationCardProps) {
         </div>
       )}
       <div className="p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-primary transition-colors">
-          {publication.title}
-        </h3>
+        <div className="flex items-start justify-between mb-2">
+          <h3 className="text-xl font-bold text-gray-900 group-hover:text-primary transition-colors flex-1">
+            {publication.title}
+          </h3>
+          <span
+            className={`ml-2 px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
+              publication.published
+                ? "bg-green-100 text-green-800"
+                : "bg-gray-100 text-gray-800"
+            }`}
+          >
+            {publication.published ? "Опубликовано" : "Не опубликовано"}
+          </span>
+        </div>
         <p className="text-gray-600 text-sm line-clamp-2 mb-4">{publication.description}</p>
         <div className="flex items-center justify-between text-sm">
           <span className="text-gray-500">By {publication.author?.user.firstName || "Unknown"}</span>

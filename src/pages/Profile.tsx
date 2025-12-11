@@ -7,7 +7,7 @@ import BecomeSellerBlock from "../components/BecomeSellerBlock"
 import CreatePublicationModal from "../components/CreatePublicationModal"
 import PublicationCard from "../components/PublicationCard"
 import { api } from "../utils/api"
-import type { Publication } from "../types"
+import type { Publication, PublicationFilterType } from "../types"
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -31,6 +31,7 @@ export default function Profile() {
   const [myPublications, setMyPublications] = useState<Publication[]>([])
   const [publicationsLoading, setPublicationsLoading] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedFilter, setSelectedFilter] = useState<PublicationFilterType>(PublicationFilterType.ALL)
 
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
@@ -91,10 +92,17 @@ export default function Profile() {
     fetchProfile()
   }, [navigate, token])
 
-  const fetchMyPublications = async () => {
+  useEffect(() => {
+    if (userRole === "ROLE_SELLER") {
+      fetchMyPublications(selectedFilter)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFilter, userRole])
+
+  const fetchMyPublications = async (filterType: PublicationFilterType = selectedFilter) => {
     try {
       setPublicationsLoading(true)
-      const pubs = await api.getMyPublications()
+      const pubs = await api.getMyPublicationsByFilter(filterType)
       setMyPublications(pubs)
     } catch (err) {
       console.error("Failed to fetch publications:", err)
@@ -309,17 +317,58 @@ export default function Profile() {
                   </button>
                 </div>
 
+                <div className="flex gap-2 mb-6 border-b pb-4">
+                  <button
+                    onClick={() => setSelectedFilter(PublicationFilterType.ALL)}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                      selectedFilter === PublicationFilterType.ALL
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    Все
+                  </button>
+                  <button
+                    onClick={() => setSelectedFilter(PublicationFilterType.PUBLISHED)}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                      selectedFilter === PublicationFilterType.PUBLISHED
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    Опубликованные
+                  </button>
+                  <button
+                    onClick={() => setSelectedFilter(PublicationFilterType.UNPUBLISHED)}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                      selectedFilter === PublicationFilterType.UNPUBLISHED
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    Неопубликованные
+                  </button>
+                </div>
+
                 {publicationsLoading ? (
                   <div className="text-center py-8 text-gray-500">Загрузка публикаций...</div>
                 ) : myPublications.length === 0 ? (
                   <div className="text-center py-12 bg-gray-50 rounded-lg">
-                    <p className="text-gray-500 mb-4">У вас пока нет публикаций</p>
-                    <button
-                      onClick={() => setIsModalOpen(true)}
-                      className="text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      Создать первую публикацию
-                    </button>
+                    <p className="text-gray-500 mb-4">
+                      {selectedFilter === PublicationFilterType.ALL
+                        ? "У вас пока нет публикаций"
+                        : selectedFilter === PublicationFilterType.PUBLISHED
+                        ? "У вас нет опубликованных публикаций"
+                        : "У вас нет неопубликованных публикаций"}
+                    </p>
+                    {selectedFilter === PublicationFilterType.ALL && (
+                      <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        Создать первую публикацию
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
