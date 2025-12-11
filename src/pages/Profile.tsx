@@ -7,7 +7,8 @@ import BecomeSellerBlock from "../components/BecomeSellerBlock"
 import CreatePublicationModal from "../components/CreatePublicationModal"
 import PublicationCard from "../components/PublicationCard"
 import { api } from "../utils/api"
-import type { Publication, PublicationFilterType } from "../types"
+import type { Publication } from "../types"
+import { PublicationFilterType } from "../types"
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -31,7 +32,7 @@ export default function Profile() {
   const [myPublications, setMyPublications] = useState<Publication[]>([])
   const [publicationsLoading, setPublicationsLoading] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [selectedFilter, setSelectedFilter] = useState<PublicationFilterType>(PublicationFilterType.ALL)
+  const [selectedFilter, setSelectedFilter] = useState<string>(PublicationFilterType.ALL)
 
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
@@ -99,7 +100,7 @@ export default function Profile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFilter, userRole])
 
-  const fetchMyPublications = async (filterType: PublicationFilterType = selectedFilter) => {
+  const fetchMyPublications = async (filterType: string = selectedFilter) => {
     try {
       setPublicationsLoading(true)
       const pubs = await api.getMyPublicationsByFilter(filterType)

@@ -1,4 +1,5 @@
-import type { AuthResponse, SignInRequest, SignUpRequest, CreatePublicationRequest, Publication, PublicationFilterType } from "../types"
+import type { AuthResponse, SignInRequest, SignUpRequest, CreatePublicationRequest, Publication } from "../types"
+import { PublicationFilterType } from "../types"
 
 // @ts-ignore
 const API_URL = import.meta.env.VITE_API_URL || "https://api-kolesa.javazhan.tech/api"
@@ -146,7 +147,7 @@ export const api = {
     return response.json()
   },
 
-  async getMyPublicationsByFilter(filterType: PublicationFilterType | string): Promise<Publication[]> {
+  async getMyPublicationsByFilter(filterType: string): Promise<Publication[]> {
     const response = await requestWithRefresh(`${API_URL}/publications/my/filter/${filterType}`, {
       method: "GET",
     })

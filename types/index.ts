@@ -40,9 +40,11 @@ export interface ApiError {
   status: number
 }
 
-export enum PublicationFilterType {
-  ALL = "ALL",
-  PUBLISHED = "PUBLISHED",
-  UNPUBLISHED = "UNPUBLISHED"
-}
+export const PublicationFilterType = {
+  ALL: "ALL",
+  PUBLISHED: "PUBLISHED",
+  UNPUBLISHED: "UNPUBLISHED"
+} as const
+
+export type PublicationFilterTypeValue = typeof PublicationFilterType[keyof typeof PublicationFilterType]
 
