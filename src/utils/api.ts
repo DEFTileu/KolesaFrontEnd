@@ -232,4 +232,15 @@ export const api = {
     }
     return response.json()
   },
+
+  async clonePublication(id: string): Promise<Publication> {
+    const response = await requestWithRefresh(`${API_URL}/publications/${id}/clone`, {
+      method: "POST",
+    })
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.message || "Failed to clone publication")
+    }
+    return response.json()
+  },
 }

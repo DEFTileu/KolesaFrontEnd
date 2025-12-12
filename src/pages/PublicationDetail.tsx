@@ -6,7 +6,7 @@ import Navbar from "../components/Navbar"
 import EditPublicationModal from "../components/EditPublicationModal"
 import { api } from "../utils/api"
 import { showToast } from "../utils/toast"
-import type { Publication, PublicationStatus } from "../types"
+import type { Publication } from "../types"
 
 export default function PublicationDetail() {
   const { id } = useParams<{ id: string }>()
@@ -16,7 +16,9 @@ export default function PublicationDetail() {
   const [error, setError] = useState("")
   const [changingStatus, setChangingStatus] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [cloningInProgress, setCloningInProgress] = useState(false)
 
   useEffect(() => {
     // Get current user from localStorage
@@ -25,6 +27,7 @@ export default function PublicationDetail() {
       if (userStr) {
         const user = JSON.parse(userStr)
         setCurrentUserId(user.id)
+        setCurrentUserRole(user.role)
       }
     } catch {}
   }, [])
@@ -67,6 +70,22 @@ export default function PublicationDetail() {
 
   const handleEditSuccess = (updated: Publication) => {
     setPublication(updated)
+  }
+
+  const handleClone = async () => {
+    if (!id) return
+
+    setCloningInProgress(true)
+    try {
+      const clonedPublication = await api.clonePublication(id)
+      showToast('Публикация успешно клонирована', 'success')
+      // Перенаправляем на страницу клонированной публикации
+      navigate(`/publication/${clonedPublication.id}`)
+    } catch (err: any) {
+      showToast(err?.message || 'Не удалось клонировать публикацию', 'error')
+    } finally {
+      setCloningInProgress(false)
+    }
   }
 
   useEffect(() => {
@@ -222,6 +241,69 @@ export default function PublicationDetail() {
                     {changingStatus ? 'Обновление...' : 'Отклонить'}
                   </button>
                 </div>
+                </div>
+
+                {/* Clone Publication Button */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Клонирование публикации</h3>
+                    <p className="text-xs text-gray-600 mt-1">Создать копию публикации для редактирования или повторного использования</p>
+                  </div>
+                  <button
+                    onClick={handleClone}
+                    disabled={cloningInProgress}
+                    className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
+                  >
+                    {cloningInProgress ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Клонирование...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Клонировать
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Clone Section for Sellers (not authors) */}
+            {currentUserRole === "ROLE_SELLER" && currentUserId && publication.author?.user?.id !== currentUserId && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Клонирование публикации</h3>
+                    <p className="text-xs text-gray-600 mt-1">Создать копию этой публикации как шаблон для своего объявления</p>
+                  </div>
+                  <button
+                    onClick={handleClone}
+                    disabled={cloningInProgress}
+                    className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  >
+                    {cloningInProgress ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Клонирование...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Клонировать
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             )}

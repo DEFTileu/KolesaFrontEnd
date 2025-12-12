@@ -6,6 +6,7 @@ export interface User {
   lastName?: string
   avatarUrl?: string
   isSeller?: boolean
+  role?: string
 }
 
 export enum PublicationStatus {
@@ -89,4 +90,3 @@ export const PublicationFilterType = {
 } as const
 
 export type PublicationFilterTypeValue = typeof PublicationFilterType[keyof typeof PublicationFilterType]
-
