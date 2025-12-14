@@ -3,6 +3,8 @@
 import { useState } from "react"
 import { api } from "../utils/api"
 import type { CreatePublicationRequest } from "../types"
+import RichTextEditor from "./RichTextEditor"
+import { extractImagesFromHtml, insertImageIntoHtml } from "../utils/htmlHelper"
 
 interface CreatePublicationModalProps {
   isOpen: boolean
@@ -111,28 +113,55 @@ export default function CreatePublicationModal({ isOpen, onClose, onSuccess }: C
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Контент <span className="text-red-500">*</span>
             </label>
-            <textarea
-              required
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={6}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Полное содержание публикации"
+            <RichTextEditor
+              content={content}
+              onChange={setContent}
+              onImagesChange={(extractedImages: string[]) => {
+                // Синхронизируем изображения из контента
+                setImages(extractedImages.join("\n"))
+              }}
+              placeholder="Полное содержание публикации. Используйте toolbar для форматирования текста и добавления изображений."
+              disabled={loading}
+              authToken={token}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Используйте панель инструментов для форматирования текста и добавления изображений
+            </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Изображения
+              Дополнительные изображения (URL)
             </label>
             <textarea
               value={images}
-              onChange={(e) => setImages(e.target.value)}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Введите URL изображений (каждый URL на новой строке)"
+              onChange={(e) => {
+                const newImages = e.target.value
+                setImages(newImages)
+
+                // Синхронизируем с контентом: добавляем новые URL как изображения
+                const currentImages = extractImagesFromHtml(content)
+                const newImageUrls = newImages
+                  .split("\n")
+                  .map(url => url.trim())
+                  .filter(url => url && !currentImages.includes(url))
+
+                if (newImageUrls.length > 0) {
+                  let updatedContent = content
+                  newImageUrls.forEach(url => {
+                    updatedContent = insertImageIntoHtml(updatedContent, url)
+                  })
+                  setContent(updatedContent)
+                }
+              }}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+              placeholder="Вставьте дополнительные URL изображений (по одному на строку)"
+              disabled={loading}
             />
-            <p className="text-xs text-gray-500 mt-1">Каждый URL должен быть на отдельной строке</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Изображения загруженные через редактор автоматически отображаются здесь. Вы также можете добавить URL вручную.
+            </p>
           </div>
 
           <div className="flex items-center gap-2">

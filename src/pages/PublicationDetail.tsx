@@ -6,6 +6,7 @@ import Navbar from "../components/Navbar"
 import EditPublicationModal from "../components/EditPublicationModal"
 import { api } from "../utils/api"
 import { showToast } from "../utils/toast"
+import { sanitizeHtml } from "../utils/htmlHelper"
 import type { Publication } from "../types"
 
 export default function PublicationDetail() {
@@ -329,9 +330,10 @@ export default function PublicationDetail() {
               <p className="text-xl text-gray-700 italic">{publication.description}</p>
             </div>
 
-            <div className="prose prose-lg max-w-none">
-              <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{publication.content}</p>
-            </div>
+            <div
+              className="prose prose-lg max-w-none text-gray-700"
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(publication.content) }}
+            />
 
             {publication.images && publication.images.length > 1 && (
               <div className="mt-8 pt-8 border-t">

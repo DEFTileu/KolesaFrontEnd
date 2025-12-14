@@ -1,5 +1,4 @@
 import type { AuthResponse, SignInRequest, SignUpRequest, CreatePublicationRequest, UpdatePublicationRequest, Publication } from "../types"
-import { PublicationFilterType } from "../types"
 
 // @ts-ignore
 const API_URL = import.meta.env.VITE_API_URL || "https://api-kolesa.javazhan.tech/api"

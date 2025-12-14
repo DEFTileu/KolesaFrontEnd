@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { api } from "../utils/api"
 import { showToast } from "../utils/toast"
 import type { Publication, UpdatePublicationRequest } from "../types"
+import RichTextEditor from "./RichTextEditor"
+import { extractImagesFromHtml, insertImageIntoHtml } from "../utils/htmlHelper"
 
 interface EditPublicationModalProps {
   isOpen: boolean
@@ -23,6 +25,11 @@ export default function EditPublicationModal({
   const [content, setContent] = useState(publication.content)
   const [images, setImages] = useState(publication.images.join("\n"))
   const [loading, setLoading] = useState(false)
+
+  // Получаем токен для загрузки файлов
+  const token = localStorage.getItem("access_token") ||
+    localStorage.getItem("auth_token") ||
+    localStorage.getItem("token")
 
   // Обновляем поля при изменении публикации
   useEffect(() => {
@@ -136,31 +143,54 @@ export default function EditPublicationModal({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Полное содержание <span className="text-red-500">*</span>
             </label>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={8}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
-              placeholder="Полное содержание публикации"
-              required
+            <RichTextEditor
+              content={content}
+              onChange={setContent}
+              onImagesChange={(extractedImages: string[]) => {
+                // Синхронизируем изображения из контента
+                setImages(extractedImages.join("\n"))
+              }}
+              placeholder="Полное содержание публикации. Используйте toolbar для форматирования."
               disabled={loading}
+              authToken={token}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Используйте панель инструментов для форматирования текста и добавления изображений
+            </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Изображения (URL)
+              Дополнительные изображения (URL)
             </label>
             <textarea
               value={images}
-              onChange={(e) => setImages(e.target.value)}
-              rows={4}
+              onChange={(e) => {
+                const newImages = e.target.value
+                setImages(newImages)
+
+                // Синхронизируем с контентом: добавляем новые URL как изображения
+                const currentImages = extractImagesFromHtml(content)
+                const newImageUrls = newImages
+                  .split("\n")
+                  .map(url => url.trim())
+                  .filter(url => url && !currentImages.includes(url))
+
+                if (newImageUrls.length > 0) {
+                  let updatedContent = content
+                  newImageUrls.forEach(url => {
+                    updatedContent = insertImageIntoHtml(updatedContent, url)
+                  })
+                  setContent(updatedContent)
+                }
+              }}
+              rows={3}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none font-mono text-sm"
-              placeholder="Вставьте URL изображений (по одному на строку)"
+              placeholder="Вставьте дополнительные URL изображений (по одному на строку)"
               disabled={loading}
             />
             <p className="mt-1 text-xs text-gray-500">
-              Каждый URL должен быть на отдельной строке
+              Изображения загруженные через редактор автоматически отображаются здесь. Вы также можете добавить URL вручную.
             </p>
           </div>
 
