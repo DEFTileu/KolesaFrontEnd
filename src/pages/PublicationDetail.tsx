@@ -7,7 +7,6 @@ import EditPublicationModal from "../components/EditPublicationModal"
 import { api } from "../utils/api"
 import { showToast } from "../utils/toast"
 import { sanitizeHtml } from "../utils/htmlHelper"
-import type { Publication } from "../types"
 
 export default function PublicationDetail() {
   const { id } = useParams<{ id: string }>()

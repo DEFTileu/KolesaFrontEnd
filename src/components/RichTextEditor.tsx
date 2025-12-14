@@ -1,10 +1,8 @@
 "use client"
 
-import { useEditor, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import Image from '@tiptap/extension-image'
-import Placeholder from '@tiptap/extension-placeholder'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import ReactQuill, { Quill } from 'react-quill'
+import 'react-quill/dist/quill.snow.css'
 import { uploadFileToProject } from '../utils/fileUploadHelper'
 import { extractImagesFromHtml } from '../utils/htmlHelper'
 
@@ -14,6 +12,30 @@ interface RichTextEditorProps {
   onImagesChange?: (images: string[]) => void
   placeholder?: string
   disabled?: boolean
+  authToken?: string | null
+}
+
+const toolbarOptions = [
+  [{ header: [1, 2, 3, 4, false] }],
+  ['bold', 'italic', 'underline', 'strike'],
+  [{ list: 'ordered' }, { list: 'bullet' }],
+  ['blockquote', 'code-block'],
+  ['link', 'image'],
+  ['clean'],
+]
+
+const dataUrlToFile = (dataUrl: string, filename: string) => {
+  const [header, base64Data] = dataUrl.split(',')
+  if (!base64Data) throw new Error('Некорректные данные изображения')
+  const mimeMatch = header.match(/data:(.*?);/)
+  const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream'
+  const binaryString = atob(base64Data)
+  const len = binaryString.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i)
+  }
+  return new File([bytes], filename, { type: mime })
 }
 
 export default function RichTextEditor({
@@ -21,308 +43,264 @@ export default function RichTextEditor({
   onChange,
   onImagesChange,
   placeholder = 'Начните вводить текст...',
-  disabled = false
+  disabled = false,
+  authToken = null,
 }: RichTextEditorProps) {
-  const [isUploading, setIsUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const quillRef = useRef<ReactQuill | null>(null)
+  const [uploadCounter, setUploadCounter] = useState(0)
+  const isUploading = uploadCounter > 0
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: {
-          levels: [1, 2, 3, 4]
-        }
-      }),
-      Image.configure({
-        inline: true,
-        HTMLAttributes: {
-          class: 'rounded-lg max-w-full h-auto my-4'
-        }
-      }),
-      Placeholder.configure({
-        placeholder
-      })
-    ],
-    content,
-    editable: !disabled,
-    onUpdate: ({ editor }: { editor: any }) => {
-      const html = editor.getHTML()
-      onChange(html)
+  const insertImageAtCursor = useCallback((url: string) => {
+    const editor = quillRef.current?.getEditor()
+    if (!editor) return
+    const range = editor.getSelection(true) ?? { index: editor.getLength(), length: 0 }
+    console.log('[Quill] Inserting image at index', range.index, 'URL:', url)
 
-      // Извлекаем изображения и передаем родителю
-      if (onImagesChange) {
-        const images = extractImagesFromHtml(html)
-        onImagesChange(images)
-      }
-    }
-  })
+    // Insert embed
+    editor.insertEmbed(range.index, 'image', url, 'user')
 
-  // Обновляем контент когда он меняется извне
-  useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content)
-    }
-  }, [content, editor])
+    // Move cursor after image
+    editor.setSelection(range.index + 1, 0)
 
-  // Обработчик загрузки изображения
-  const handleImageUpload = async (file: File) => {
+    // Manually trigger onChange with updated HTML
+    const html = editor.root.innerHTML
+    console.log('[Quill] After insert, triggering onChange with HTML length:', html.length)
+    onChange(html)
+  }, [onChange])
+
+  const replaceImageElement = useCallback((imgEl: HTMLImageElement, url: string) => {
+    const editor = quillRef.current?.getEditor()
     if (!editor) return
 
-    setIsUploading(true)
+    try {
+      const blot = (Quill as any).find?.(imgEl)
+      if (!blot) {
+        console.warn('[Quill] Could not find blot for image, inserting new one')
+        insertImageAtCursor(url)
+        return
+      }
+      const index = editor.getIndex(blot)
+      console.log('[Quill] Replacing image at index', index, 'URL:', url)
+      editor.deleteText(index, 1)
+      editor.insertEmbed(index, 'image', url, 'user')
+      editor.setSelection(index + 1, 0)
 
+      // Manually trigger onChange with updated HTML
+      const html = editor.root.innerHTML
+      console.log('[Quill] After replace, triggering onChange with HTML length:', html.length)
+      onChange(html)
+    } catch (err) {
+      console.error('[Quill] Error replacing image:', err)
+      insertImageAtCursor(url)
+    }
+  }, [insertImageAtCursor, onChange])
+
+  const handleImageUpload = useCallback(async (file: File, replaceImage?: HTMLImageElement) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Пожалуйста, выберите файл изображения')
+      return
+    }
+
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
+      alert('Размер файла не должен превышать 5 МБ')
+      return
+    }
+
+    setUploadCounter(prev => prev + 1)
     try {
       const result = await uploadFileToProject(
         file,
         'kolesa',
         'publication-images',
         'https://api-todo.javazhan.tech',
+        authToken,
       )
 
-      // Вставляем изображение в редактор
-      editor.chain().focus().setImage({ src: result.url }).run()
+      if (replaceImage) {
+        replaceImageElement(replaceImage, result.url)
+      } else {
+        insertImageAtCursor(result.url)
+      }
     } catch (error) {
       console.error('Ошибка загрузки изображения:', error)
       alert(error instanceof Error ? error.message : 'Не удалось загрузить изображение')
     } finally {
-      setIsUploading(false)
+      setUploadCounter(prev => Math.max(0, prev - 1))
     }
-  }
+  }, [authToken, insertImageAtCursor, replaceImageElement])
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      // Проверка типа файла
-      if (!file.type.startsWith('image/')) {
-        alert('Пожалуйста, выберите файл изображения')
-        return
+  const processBase64Images = useCallback(async () => {
+    const editor = quillRef.current?.getEditor()
+    const root = editor?.root
+    if (!root || !editor) return
+
+    const allImages = Array.from(root.querySelectorAll('img'))
+    console.log('[Quill] Found', allImages.length, 'images in editor')
+
+    const images = allImages.filter(img => {
+      const src = img.getAttribute('src') || ''
+      const isBase64 = src.startsWith('data:')
+      const isNotUploading = img.dataset.uploading !== 'true'
+      console.log('[Quill] Image src:', src.substring(0, 50), '...', 'isBase64:', isBase64, 'canProcess:', isBase64 && isNotUploading)
+      return isBase64 && isNotUploading
+    })
+
+    console.log('[Quill] Processing', images.length, 'base64 images')
+
+    for (const img of images) {
+      const src = img.getAttribute('src') || ''
+      try {
+        img.dataset.uploading = 'true'
+        console.log('[Quill] Converting base64 to file and uploading...')
+        const file = dataUrlToFile(src, 'clipboard-image.png')
+        await handleImageUpload(file, img)
+        console.log('[Quill] Successfully uploaded image')
+      } catch (err) {
+        console.error('[Quill] Ошибка загрузки изображения из буфера обмена', err)
+      } finally {
+        delete img.dataset.uploading
       }
+    }
+  }, [handleImageUpload])
 
-      // Проверка размера (максимум 5MB)
-      const maxSize = 5 * 1024 * 1024
-      if (file.size > maxSize) {
-        alert('Размер файла не должен превышать 5 МБ')
-        return
+  const handleImageInsert = useCallback(() => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*'
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (file) {
+        await handleImageUpload(file)
       }
+    }
+    input.click()
+  }, [handleImageUpload])
 
-      handleImageUpload(file)
+  useEffect(() => {
+    const editor = quillRef.current?.getEditor()
+    const root = editor?.root
+    if (!root) return
+
+    const handlePaste = (event: ClipboardEvent) => {
+      console.log('[Quill] Paste event detected')
+      const files = Array.from(event.clipboardData?.files ?? [])
+      const imageFiles = files.filter(file => file.type.startsWith('image/'))
+
+      if (imageFiles.length) {
+        console.log('[Quill] Detected', imageFiles.length, 'image files in paste')
+        event.preventDefault()
+        event.stopPropagation()
+        imageFiles.forEach(file => handleImageUpload(file))
+      } else {
+        console.log('[Quill] No image files, will check for base64 after paste')
+        setTimeout(() => {
+          void processBase64Images()
+        }, 100)
+      }
     }
 
-    // Сбрасываем input для возможности загрузить тот же файл снова
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-  }
+    const handleDrop = (event: DragEvent) => {
+      console.log('[Quill] Drop event detected')
+      const files = Array.from(event.dataTransfer?.files ?? [])
+      const imageFiles = files.filter(file => file.type.startsWith('image/'))
 
-  if (!editor) {
-    return null
+      if (imageFiles.length) {
+        console.log('[Quill] Detected', imageFiles.length, 'image files in drop')
+        event.preventDefault()
+        event.stopPropagation()
+        imageFiles.forEach(file => handleImageUpload(file))
+      }
+    }
+
+    root.addEventListener('paste', handlePaste, true)
+    root.addEventListener('drop', handleDrop, true)
+    return () => {
+      root.removeEventListener('paste', handlePaste, true)
+      root.removeEventListener('drop', handleDrop, true)
+    }
+  }, [handleImageUpload, processBase64Images])
+
+  useEffect(() => {
+    const editor = quillRef.current?.getEditor()
+    const handler = () => {
+      void processBase64Images()
+    }
+    if (editor) {
+      editor.on('text-change', handler)
+    }
+    return () => {
+      if (editor) {
+        editor.off('text-change', handler)
+      }
+    }
+  }, [processBase64Images])
+
+  const modules = useMemo(() => ({
+    toolbar: {
+      container: toolbarOptions,
+      handlers: {
+        image: handleImageInsert,
+      },
+    },
+    clipboard: {
+      matchVisual: false,
+    },
+  }), [handleImageInsert])
+
+
+
+
+  const handleChange = (html: string) => {
+    console.log('[Quill] Content changed, length:', html.length)
+    onChange(html)
+    if (onImagesChange) {
+      const extracted = extractImagesFromHtml(html)
+      console.log('[Quill] Extracted images:', extracted.length)
+      onImagesChange(extracted)
+    }
+    // Process base64 images with a small delay to ensure DOM is updated
+    setTimeout(() => {
+      void processBase64Images()
+    }, 50)
   }
 
   return (
-    <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-1 p-2 bg-gray-50 border-b border-gray-300">
-        {/* Bold */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          disabled={disabled || !editor.can().chain().focus().toggleBold().run()}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive('bold') ? 'bg-gray-300' : ''
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
-          title="Жирный (Ctrl+B)"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6zM6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z" />
-          </svg>
-        </button>
-
-        {/* Italic */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          disabled={disabled || !editor.can().chain().focus().toggleItalic().run()}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive('italic') ? 'bg-gray-300' : ''
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
-          title="Курсив (Ctrl+I)"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6L8 18M14 6l-2 12M6 18h8M10 6h8" />
-          </svg>
-        </button>
-
-        {/* Divider */}
-        <div className="w-px h-6 bg-gray-300 mx-1" />
-
-        {/* Headings */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          disabled={disabled}
-          className={`px-3 py-2 rounded hover:bg-gray-200 transition-colors font-bold ${
-            editor.isActive('heading', { level: 1 }) ? 'bg-gray-300' : ''
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
-          title="Заголовок 1"
-        >
-          H1
-        </button>
-
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          disabled={disabled}
-          className={`px-3 py-2 rounded hover:bg-gray-200 transition-colors font-bold ${
-            editor.isActive('heading', { level: 2 }) ? 'bg-gray-300' : ''
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
-          title="Заголовок 2"
-        >
-          H2
-        </button>
-
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          disabled={disabled}
-          className={`px-3 py-2 rounded hover:bg-gray-200 transition-colors font-bold ${
-            editor.isActive('heading', { level: 3 }) ? 'bg-gray-300' : ''
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
-          title="Заголовок 3"
-        >
-          H3
-        </button>
-
-        {/* Divider */}
-        <div className="w-px h-6 bg-gray-300 mx-1" />
-
-        {/* Lists */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          disabled={disabled}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive('bulletList') ? 'bg-gray-300' : ''
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
-          title="Маркированный список"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          disabled={disabled}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive('orderedList') ? 'bg-gray-300' : ''
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
-          title="Нумерованный список"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M3 12h18M3 20h18" />
-          </svg>
-        </button>
-
-        {/* Divider */}
-        <div className="w-px h-6 bg-gray-300 mx-1" />
-
-        {/* Code Block */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-          disabled={disabled}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive('codeBlock') ? 'bg-gray-300' : ''
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
-          title="Блок кода"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-          </svg>
-        </button>
-
-        {/* Blockquote */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          disabled={disabled}
-          className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-            editor.isActive('blockquote') ? 'bg-gray-300' : ''
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
-          title="Цитата"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h10M7 16h10" />
-          </svg>
-        </button>
-
-        {/* Divider */}
-        <div className="w-px h-6 bg-gray-300 mx-1" />
-
-        {/* Image Upload */}
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled || isUploading}
-          className="p-2 rounded hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-          title="Загрузить изображение"
-        >
-          {isUploading ? (
-            <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          ) : (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          )}
-          {isUploading && <span className="text-xs">Загрузка...</span>}
-        </button>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileSelect}
-          className="hidden"
+    <div className="border border-gray-300 rounded-lg overflow-hidden bg-white w-full">
+      {isUploading && (
+        <div className="px-4 py-2 text-sm text-gray-600 bg-gray-50 border-b">
+          Загрузка изображения...
+        </div>
+      )}
+      <style>{`
+        .quill-editor-container .ql-toolbar {
+          border: none !important;
+          border-bottom: 1px solid #d1d5db !important;
+        }
+        .quill-editor-container .ql-container {
+          border: none !important;
+          font-size: 1rem;
+        }
+        .quill-editor-container .ql-editor {
+          min-height: 200px;
+          padding: 1rem;
+        }
+        .quill-editor-container .ql-editor.ql-blank::before {
+          font-style: normal;
+          color: #9ca3af;
+        }
+      `}</style>
+      <div className="quill-editor-container w-full">
+        <ReactQuill
+          ref={quillRef}
+          theme="snow"
+          value={content}
+          onChange={handleChange}
+          modules={modules}
+          placeholder={placeholder}
+          readOnly={disabled || isUploading}
         />
-
-        {/* Divider */}
-        <div className="w-px h-6 bg-gray-300 mx-1" />
-
-        {/* Undo/Redo */}
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().undo().run()}
-          disabled={disabled || !editor.can().chain().focus().undo().run()}
-          className="p-2 rounded hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Отменить (Ctrl+Z)"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-          </svg>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => editor.chain().focus().redo().run()}
-          disabled={disabled || !editor.can().chain().focus().redo().run()}
-          className="p-2 rounded hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Вернуть (Ctrl+Y)"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
-          </svg>
-        </button>
       </div>
-
-      {/* Editor Content */}
-      <EditorContent
-        editor={editor}
-        className="prose prose-sm max-w-none p-4 min-h-[200px] focus:outline-none"
-      />
     </div>
   )
 }
-

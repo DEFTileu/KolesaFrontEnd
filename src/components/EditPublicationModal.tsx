@@ -1,11 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { api } from "../utils/api"
 import { showToast } from "../utils/toast"
 import type { Publication, UpdatePublicationRequest } from "../types"
 import RichTextEditor from "./RichTextEditor"
-import { extractImagesFromHtml, insertImageIntoHtml } from "../utils/htmlHelper"
 
 interface EditPublicationModalProps {
   isOpen: boolean
@@ -23,20 +22,22 @@ export default function EditPublicationModal({
   const [title, setTitle] = useState(publication.title)
   const [description, setDescription] = useState(publication.description)
   const [content, setContent] = useState(publication.content)
-  const [images, setImages] = useState(publication.images.join("\n"))
+  const [images, setImages] = useState(publication.images)
   const [loading, setLoading] = useState(false)
 
   // Получаем токен для загрузки файлов
-  const token = localStorage.getItem("access_token") ||
+  const token = useMemo(() =>
+    localStorage.getItem("access_token") ||
     localStorage.getItem("auth_token") ||
-    localStorage.getItem("token")
+    localStorage.getItem("token"),
+  [])
 
   // Обновляем поля при изменении публикации
   useEffect(() => {
     setTitle(publication.title)
     setDescription(publication.description)
     setContent(publication.content)
-    setImages(publication.images.join("\n"))
+    setImages(publication.images)
   }, [publication])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,16 +51,11 @@ export default function EditPublicationModal({
     setLoading(true)
 
     try {
-      const imageArray = images
-        .split("\n")
-        .map((url) => url.trim())
-        .filter((url) => url.length > 0)
-
       const data: UpdatePublicationRequest = {
         title: title.trim(),
         description: description.trim(),
         content: content.trim(),
-        images: imageArray,
+        images,
       }
 
       const updated = await api.updatePublication(publication.id, data)
@@ -81,7 +77,7 @@ export default function EditPublicationModal({
       title !== publication.title ||
       description !== publication.description ||
       content !== publication.content ||
-      images !== publication.images.join("\n")
+      images !== publication.images
 
     if (hasChanges && !confirm("У вас есть несохраненные изменения. Закрыть без сохранения?")) {
       return
@@ -147,8 +143,7 @@ export default function EditPublicationModal({
               content={content}
               onChange={setContent}
               onImagesChange={(extractedImages: string[]) => {
-                // Синхронизируем изображения из контента
-                setImages(extractedImages.join("\n"))
+                setImages(extractedImages)
               }}
               placeholder="Полное содержание публикации. Используйте toolbar для форматирования."
               disabled={loading}
@@ -159,40 +154,22 @@ export default function EditPublicationModal({
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Дополнительные изображения (URL)
-            </label>
-            <textarea
-              value={images}
-              onChange={(e) => {
-                const newImages = e.target.value
-                setImages(newImages)
-
-                // Синхронизируем с контентом: добавляем новые URL как изображения
-                const currentImages = extractImagesFromHtml(content)
-                const newImageUrls = newImages
-                  .split("\n")
-                  .map(url => url.trim())
-                  .filter(url => url && !currentImages.includes(url))
-
-                if (newImageUrls.length > 0) {
-                  let updatedContent = content
-                  newImageUrls.forEach(url => {
-                    updatedContent = insertImageIntoHtml(updatedContent, url)
-                  })
-                  setContent(updatedContent)
-                }
-              }}
-              rows={3}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none font-mono text-sm"
-              placeholder="Вставьте дополнительные URL изображений (по одному на строку)"
-              disabled={loading}
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Изображения загруженные через редактор автоматически отображаются здесь. Вы также можете добавить URL вручную.
-            </p>
-          </div>
+          {images.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="block text-sm font-medium text-gray-700">
+                  Изображения в контенте ({images.length})
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {images.map((img, index) => (
+                  <div key={`${img}-${index}`} className="border border-gray-200 rounded-md overflow-hidden">
+                    <img src={img} alt="Контент" className="w-full h-20 object-cover" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t">
             <button
@@ -216,4 +193,3 @@ export default function EditPublicationModal({
     </div>
   )
 }
-

@@ -1,10 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { api } from "../utils/api"
 import type { CreatePublicationRequest } from "../types"
 import RichTextEditor from "./RichTextEditor"
-import { extractImagesFromHtml, insertImageIntoHtml } from "../utils/htmlHelper"
 
 interface CreatePublicationModalProps {
   isOpen: boolean
@@ -16,10 +15,16 @@ export default function CreatePublicationModal({ isOpen, onClose, onSuccess }: C
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [content, setContent] = useState("")
-  const [images, setImages] = useState("")
+  const [images, setImages] = useState<string[]>([])
   const [published, setPublished] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+
+  const token = useMemo(() =>
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("auth_token") ||
+    localStorage.getItem("token"),
+  [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,16 +32,11 @@ export default function CreatePublicationModal({ isOpen, onClose, onSuccess }: C
     setError("")
 
     try {
-      const imageArray = images
-        .split("\n")
-        .map((url) => url.trim())
-        .filter((url) => url.length > 0)
-
       const data: CreatePublicationRequest = {
         title,
         description,
         content,
-        images: imageArray,
+        images,
         published,
       }
 
@@ -44,7 +44,7 @@ export default function CreatePublicationModal({ isOpen, onClose, onSuccess }: C
       setTitle("")
       setDescription("")
       setContent("")
-      setImages("")
+      setImages([])
       setPublished(true)
       onSuccess()
       onClose()
@@ -54,6 +54,17 @@ export default function CreatePublicationModal({ isOpen, onClose, onSuccess }: C
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (isOpen) {
+      setTitle("")
+      setDescription("")
+      setContent("")
+      setImages([])
+      setPublished(true)
+      setError("")
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -117,8 +128,7 @@ export default function CreatePublicationModal({ isOpen, onClose, onSuccess }: C
               content={content}
               onChange={setContent}
               onImagesChange={(extractedImages: string[]) => {
-                // Синхронизируем изображения из контента
-                setImages(extractedImages.join("\n"))
+                setImages(extractedImages)
               }}
               placeholder="Полное содержание публикации. Используйте toolbar для форматирования текста и добавления изображений."
               disabled={loading}
@@ -129,40 +139,22 @@ export default function CreatePublicationModal({ isOpen, onClose, onSuccess }: C
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Дополнительные изображения (URL)
-            </label>
-            <textarea
-              value={images}
-              onChange={(e) => {
-                const newImages = e.target.value
-                setImages(newImages)
-
-                // Синхронизируем с контентом: добавляем новые URL как изображения
-                const currentImages = extractImagesFromHtml(content)
-                const newImageUrls = newImages
-                  .split("\n")
-                  .map(url => url.trim())
-                  .filter(url => url && !currentImages.includes(url))
-
-                if (newImageUrls.length > 0) {
-                  let updatedContent = content
-                  newImageUrls.forEach(url => {
-                    updatedContent = insertImageIntoHtml(updatedContent, url)
-                  })
-                  setContent(updatedContent)
-                }
-              }}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-              placeholder="Вставьте дополнительные URL изображений (по одному на строку)"
-              disabled={loading}
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Изображения загруженные через редактор автоматически отображаются здесь. Вы также можете добавить URL вручную.
-            </p>
-          </div>
+          {images.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="block text-sm font-medium text-gray-700">
+                  Изображения в контенте ({images.length})
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {images.map((img, index) => (
+                  <div key={`${img}-${index}`} className="border border-gray-200 rounded-md overflow-hidden">
+                    <img src={img} alt="Контент" className="w-full h-20 object-cover" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             <input
@@ -198,4 +190,3 @@ export default function CreatePublicationModal({ isOpen, onClose, onSuccess }: C
     </div>
   )
 }
-
